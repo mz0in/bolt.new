@@ -1,4 +1,4 @@
-import type { AppLoadContext, EntryContext } from '@remix-run/cloudflare';
+import type { AppLoadContext } from '@remix-run/cloudflare';
 import { RemixServer } from '@remix-run/react';
 import { isbot } from 'isbot';
 import { renderToReadableStream } from 'react-dom/server';
@@ -10,9 +10,11 @@ export default async function handleRequest(
   request: Request,
   responseStatusCode: number,
   responseHeaders: Headers,
-  remixContext: EntryContext,
+  remixContext: any,
   _loadContext: AppLoadContext,
 ) {
+  // await initializeModelList({});
+
   const readable = await renderToReadableStream(<RemixServer context={remixContext} url={request.url} />, {
     signal: request.signal,
     onError(error: unknown) {
@@ -40,7 +42,7 @@ export default async function handleRequest(
           .read()
           .then(({ done, value }) => {
             if (done) {
-              controller.enqueue(new Uint8Array(new TextEncoder().encode(`</div></body></html>`)));
+              controller.enqueue(new Uint8Array(new TextEncoder().encode('</div></body></html>')));
               controller.close();
 
               return;

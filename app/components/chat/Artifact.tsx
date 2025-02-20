@@ -7,6 +7,7 @@ import type { ActionState } from '~/lib/runtime/action-runner';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
+import { WORK_DIR } from '~/utils/constants';
 
 const highlighterOptions = {
   langs: ['shell'],
@@ -27,6 +28,7 @@ interface ArtifactProps {
 export const Artifact = memo(({ messageId }: ArtifactProps) => {
   const userToggledActions = useRef(false);
   const [showActions, setShowActions] = useState(false);
+  const [allActionFinished, setAllActionFinished] = useState(false);
 
   const artifacts = useStore(workbenchStore.artifacts);
   const artifact = artifacts[messageId];
@@ -46,6 +48,14 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
     if (actions.length && !showActions && !userToggledActions.current) {
       setShowActions(true);
     }
+
+    if (actions.length !== 0 && artifact.type === 'bundled') {
+      const finished = !actions.find((action) => action.status !== 'complete');
+
+      if (allActionFinished !== finished) {
+        setAllActionFinished(finished);
+      }
+    }
   }, [actions]);
 
   return (
@@ -58,6 +68,18 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
             workbenchStore.showWorkbench.set(!showWorkbench);
           }}
         >
+          {artifact.type == 'bundled' && (
+            <>
+              <div className="p-4">
+                {allActionFinished ? (
+                  <div className={'i-ph:files-light'} style={{ fontSize: '2rem' }}></div>
+                ) : (
+                  <div className={'i-svg-spinners:90-ring-with-bg'} style={{ fontSize: '2rem' }}></div>
+                )}
+              </div>
+              <div className="bg-bolt-elements-artifacts-borderColor w-[1px]" />
+            </>
+          )}
           <div className="px-5 p-3.5 w-full text-left">
             <div className="w-full text-bolt-elements-textPrimary font-medium leading-5 text-sm">{artifact?.title}</div>
             <div className="w-full w-full text-bolt-elements-textSecondary text-xs mt-0.5">Click to open Workbench</div>
@@ -65,7 +87,7 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
         </button>
         <div className="bg-bolt-elements-artifacts-borderColor w-[1px]" />
         <AnimatePresence>
-          {actions.length && (
+          {actions.length && artifact.type !== 'bundled' && (
             <motion.button
               initial={{ width: 0 }}
               animate={{ width: 'auto' }}
@@ -82,7 +104,7 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
         </AnimatePresence>
       </div>
       <AnimatePresence>
-        {showActions && actions.length > 0 && (
+        {artifact.type !== 'bundled' && showActions && actions.length > 0 && (
           <motion.div
             className="actions"
             initial={{ height: 0 }}
@@ -91,6 +113,7 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
             transition={{ duration: 0.15 }}
           >
             <div className="bg-bolt-elements-artifacts-borderColor h-[1px]" />
+
             <div className="p-5 text-left bg-bolt-elements-actions-background">
               <ActionList actions={actions} />
             </div>
@@ -129,6 +152,14 @@ const actionVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
+function openArtifactInWorkbench(filePath: any) {
+  if (workbenchStore.currentView.get() !== 'code') {
+    workbenchStore.currentView.set('code');
+  }
+
+  workbenchStore.setSelectedFile(`${WORK_DIR}/${filePath}`);
+}
+
 const ActionList = memo(({ actions }: ActionListProps) => {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
@@ -151,7 +182,13 @@ const ActionList = memo(({ actions }: ActionListProps) => {
               <div className="flex items-center gap-1.5 text-sm">
                 <div className={classNames('text-lg', getIconColor(action.status))}>
                   {status === 'running' ? (
-                    <div className="i-svg-spinners:90-ring-with-bg"></div>
+                    <>
+                      {type !== 'start' ? (
+                        <div className="i-svg-spinners:90-ring-with-bg"></div>
+                      ) : (
+                        <div className="i-ph:terminal-window-duotone"></div>
+                      )}
+                    </>
                   ) : status === 'pending' ? (
                     <div className="i-ph:circle-duotone"></div>
                   ) : status === 'complete' ? (
@@ -163,7 +200,10 @@ const ActionList = memo(({ actions }: ActionListProps) => {
                 {type === 'file' ? (
                   <div>
                     Create{' '}
-                    <code className="bg-bolt-elements-artifacts-inlineCode-background text-bolt-elements-artifacts-inlineCode-text px-1.5 py-1 rounded-md">
+                    <code
+                      className="bg-bolt-elements-artifacts-inlineCode-background text-bolt-elements-artifacts-inlineCode-text px-1.5 py-1 rounded-md text-bolt-elements-item-contentAccent hover:underline cursor-pointer"
+                      onClick={() => openArtifactInWorkbench(action.filePath)}
+                    >
                       {action.filePath}
                     </code>
                   </div>
@@ -171,9 +211,19 @@ const ActionList = memo(({ actions }: ActionListProps) => {
                   <div className="flex items-center w-full min-h-[28px]">
                     <span className="flex-1">Run command</span>
                   </div>
+                ) : type === 'start' ? (
+                  <a
+                    onClick={(e) => {
+                      e.preventDefault();
+                      workbenchStore.currentView.set('preview');
+                    }}
+                    className="flex items-center w-full min-h-[28px]"
+                  >
+                    <span className="flex-1">Start Application</span>
+                  </a>
                 ) : null}
               </div>
-              {type === 'shell' && (
+              {(type === 'shell' || type === 'start') && (
                 <ShellCodeBlock
                   classsName={classNames('mt-1', {
                     'mb-3.5': !isLast,

@@ -35,17 +35,17 @@ const BASE_COLORS = {
     950: '#0A0A0A',
   },
   accent: {
-    50: '#EEF9FF',
-    100: '#D8F1FF',
-    200: '#BAE7FF',
-    300: '#8ADAFF',
-    400: '#53C4FF',
-    500: '#2BA6FF',
-    600: '#1488FC',
-    700: '#0D6FE8',
-    800: '#1259BB',
-    900: '#154E93',
-    950: '#122F59',
+    50: '#F8F5FF',
+    100: '#F0EBFF',
+    200: '#E1D6FF',
+    300: '#CEBEFF',
+    400: '#B69EFF',
+    500: '#9C7DFF',
+    600: '#8A5FFF',
+    700: '#7645E8',
+    800: '#6234BB',
+    900: '#502D93',
+    950: '#2D1959',
   },
   green: {
     50: '#F0FDF4',
@@ -98,6 +98,9 @@ const COLOR_PRIMITIVES = {
 };
 
 export default defineConfig({
+  safelist: [
+    ...Object.keys(customIconCollection[collectionName] || {}).map(x => `i-bolt:${x}`)
+  ],
   shortcuts: {
     'bolt-ease-cubic-bezier': 'ease-[cubic-bezier(0.4,0,0.2,1)]',
     'transition-theme': 'transition-[background-color,border-color,color] duration-150 bolt-ease-cubic-bezier',
@@ -241,6 +244,7 @@ export default defineConfig({
       collections: {
         ...customIconCollection,
       },
+      unit: 'em',
     }),
   ],
 });

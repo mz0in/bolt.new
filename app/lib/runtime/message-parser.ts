@@ -28,6 +28,7 @@ export interface ParserCallbacks {
   onArtifactOpen?: ArtifactCallback;
   onArtifactClose?: ArtifactCallback;
   onActionOpen?: ActionCallback;
+  onActionStream?: ActionCallback;
   onActionClose?: ActionCallback;
 }
 
@@ -51,6 +52,22 @@ interface MessageState {
   actionId: number;
 }
 
+function cleanoutMarkdownSyntax(content: string) {
+  const codeBlockRegex = /^\s*```\w*\n([\s\S]*?)\n\s*```\s*$/;
+  const match = content.match(codeBlockRegex);
+
+  // console.log('matching', !!match, content);
+
+  if (match) {
+    return match[1]; // Remove common leading 4-space indent
+  } else {
+    return content;
+  }
+}
+
+function cleanEscapedTags(content: string) {
+  return content.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+}
 export class StreamingMessageParser {
   #messages = new Map<string, MessageState>();
 
@@ -94,6 +111,12 @@ export class StreamingMessageParser {
             let content = currentAction.content.trim();
 
             if ('type' in currentAction && currentAction.type === 'file') {
+              // Remove markdown code block syntax if present and file is not markdown
+              if (!currentAction.filePath.endsWith('.md')) {
+                content = cleanoutMarkdownSyntax(content);
+                content = cleanEscapedTags(content);
+              }
+
               content += '\n';
             }
 
@@ -118,6 +141,26 @@ export class StreamingMessageParser {
 
             i = closeIndex + ARTIFACT_ACTION_TAG_CLOSE.length;
           } else {
+            if ('type' in currentAction && currentAction.type === 'file') {
+              let content = input.slice(i);
+
+              if (!currentAction.filePath.endsWith('.md')) {
+                content = cleanoutMarkdownSyntax(content);
+                content = cleanEscapedTags(content);
+              }
+
+              this._options.callbacks?.onActionStream?.({
+                artifactId: currentArtifact.id,
+                messageId,
+                actionId: String(state.actionId - 1),
+                action: {
+                  ...(currentAction as FileAction),
+                  content,
+                  filePath: currentAction.filePath,
+                },
+              });
+            }
+
             break;
           }
         } else {
@@ -176,6 +219,7 @@ export class StreamingMessageParser {
               const artifactTag = input.slice(i, openTagEnd + 1);
 
               const artifactTitle = this.#extractAttribute(artifactTag, 'title') as string;
+              const type = this.#extractAttribute(artifactTag, 'type') as string;
               const artifactId = this.#extractAttribute(artifactTag, 'id') as string;
 
               if (!artifactTitle) {
@@ -191,6 +235,7 @@ export class StreamingMessageParser {
               const currentArtifact = {
                 id: artifactId,
                 title: artifactTitle,
+                type,
               } satisfies BoltArtifactData;
 
               state.currentArtifact = currentArtifact;
@@ -256,7 +301,7 @@ export class StreamingMessageParser {
       }
 
       (actionAttributes as FileAction).filePath = filePath;
-    } else if (actionType !== 'shell') {
+    } else if (!['shell', 'start'].includes(actionType)) {
       logger.warn(`Unknown action type '${actionType}'`);
     }
 

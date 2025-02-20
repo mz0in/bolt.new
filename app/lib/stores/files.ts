@@ -2,7 +2,7 @@ import type { PathWatcherEvent, WebContainer } from '@webcontainer/api';
 import { getEncoding } from 'istextorbinary';
 import { map, type MapStore } from 'nanostores';
 import { Buffer } from 'node:buffer';
-import * as nodePath from 'node:path';
+import { path } from '~/utils/path';
 import { bufferWatchEvents } from '~/utils/buffer';
 import { WORK_DIR } from '~/utils/constants';
 import { computeFileModifications } from '~/utils/diff';
@@ -84,7 +84,7 @@ export class FilesStore {
     const webcontainer = await this.#webcontainer;
 
     try {
-      const relativePath = nodePath.relative(webcontainer.workdir, filePath);
+      const relativePath = path.relative(webcontainer.workdir, filePath);
 
       if (!relativePath) {
         throw new Error(`EINVAL: invalid file path, write '${relativePath}'`);
@@ -212,9 +212,5 @@ function isBinaryFile(buffer: Uint8Array | undefined) {
  * array buffer.
  */
 function convertToBuffer(view: Uint8Array): Buffer {
-  const buffer = new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
-
-  Object.setPrototypeOf(buffer, Buffer.prototype);
-
-  return buffer as Buffer;
+  return Buffer.from(view.buffer, view.byteOffset, view.byteLength);
 }

@@ -6,6 +6,8 @@ import { themeStore } from './lib/stores/theme';
 import { stripIndents } from './utils/stripIndent';
 import { createHead } from 'remix-island';
 import { useEffect } from 'react';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
 import reactToastifyStyles from 'react-toastify/dist/ReactToastify.css?url';
 import globalStyles from './styles/index.scss?url';
@@ -70,14 +72,31 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, [theme]);
 
   return (
-    <>
+    <DndProvider backend={HTML5Backend}>
       {children}
       <ScrollRestoration />
       <Scripts />
-    </>
+    </DndProvider>
   );
 }
 
+import { logStore } from './lib/stores/logs';
+
 export default function App() {
-  return <Outlet />;
+  const theme = useStore(themeStore);
+
+  useEffect(() => {
+    logStore.logSystem('Application initialized', {
+      theme,
+      platform: navigator.platform,
+      userAgent: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+    });
+  }, []);
+
+  return (
+    <Layout>
+      <Outlet />
+    </Layout>
+  );
 }
